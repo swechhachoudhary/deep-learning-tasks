@@ -164,7 +164,7 @@ class RNN(nn.Module):
             hidden_state = []
             for l in range(self.num_layers):
 		
-		h_inp = hidden[l] if t==0 else ht[l]
+		h_inp = hidden_t[l] if t==0 else ht[l]
 
                 inp = torch.cat((xt, h_inp), dim=1)
                 ht = self.linear_x[l](inp)
@@ -215,7 +215,7 @@ class RNN(nn.Module):
             hidden_state = []
             for l in range(self.num_layers):
 
-                h_inp = hidden[l] if t==0 else ht[l]
+                h_inp = hidden_t[l] if t==0 else ht[l]
 
                 inp = torch.cat((xt, h_inp), dim=1)
                 ht = self.linear_x[l](inp)
