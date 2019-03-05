@@ -86,9 +86,6 @@ class RNN(nn.Module):
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
-	
-	self.linear_x = nn.ModuleList(
-	    [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
 
         self.hidden_layers = nn.ModuleList(
             [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
@@ -155,25 +152,22 @@ class RNN(nn.Module):
                         shape: (num_layers, batch_size, hidden_size)
         """
 	logits = []
-        hidden_t = init_hidden
+        previous_hidden = init_hidden
         embeddings = self.embedding_layer(inputs)
-
         for t in range(self.seq_len):
             # emb_inp is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
-		
-		h_inp = hidden_t[l] if t==0 else ht[l]
 
-                inp = torch.cat((xt, h_inp), dim=1)
-                ht = self.linear_x[l](inp)
+                hidden = previous_hidden[l]
+                inp = torch.cat((xt, hidden), dim=1)
+                h_inp = torch.cat((xt, hidden), dim=1)
+                ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
-
                 if l < (self.num_layers - 1):
                     out = self.fc_layers[l](ht)
                 xt = out
-
             out = self.output_layer(ht)
             logits.append(out)
             previous_hidden = copy.deepcopy(hidden_state)
@@ -213,19 +207,19 @@ class RNN(nn.Module):
             # embedding is of shape(self.batch_size, self.emb_size)
             xt = self.embedding_layer(input)
             hidden_state = []
+	
             for l in range(self.num_layers):
-
-                h_inp = hidden_t[l] if t==0 else ht[l]
-
-                inp = torch.cat((xt, h_inp), dim=1)
-                ht = self.linear_x[l](inp)
+			
+                hidden = previous_hidden[l]
+                inp = torch.cat((xt, hidden), dim=1)
+                h_inp = torch.cat((xt, hidden), dim=1)
+                ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
-
                 if l < (self.num_layers - 1):
                     out = self.fc_layers[l](ht)
                 xt = out
-
-            out = self.output_layer(ht)
+            
+	    out = self.output_layer(ht)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=None, logits=None, validate_args=None)
