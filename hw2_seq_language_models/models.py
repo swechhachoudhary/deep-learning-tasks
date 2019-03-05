@@ -114,7 +114,7 @@ class RNN(nn.Module):
         """
         return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
 
-    def forward(self, inputs, hidden):
+    def forward(self, inputs, init_hidden):
         # TODO ========================
         # Compute the forward pass, using a nested python for loops.
         # The outer for loop should iterate over timesteps, and the
@@ -151,7 +151,7 @@ class RNN(nn.Module):
                         shape: (num_layers, batch_size, hidden_size)
         """
 
-            logits = []
+        logits = []
         previous_hidden = init_hidden
         embeddings = self.embedding_layer(inputs)
         for t in range(self.seq_len):
@@ -176,7 +176,7 @@ class RNN(nn.Module):
 
         return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
 
-    def generate(self, input, hidden, generated_seq_len):
+    def generate(self, input, init_hidden, generated_seq_len):
         # TODO ========================
         # Compute the forward pass, as in the self.forward method (above).
         # You'll probably want to copy substantial portions of that code here.
@@ -201,6 +201,7 @@ class RNN(nn.Module):
                         shape: (generated_seq_len, batch_size)
         """
         samples = []
+        previous_hidden = init_hidden
 
         for t in range(generated_seq_len):
             # embedding is of shape(self.batch_size, self.emb_size)
@@ -220,7 +221,7 @@ class RNN(nn.Module):
             out = self.output_layer(ht)
             probs = F.softmax(out, dim=1)
             # sample
-            dist = Categorical(probs=None, logits=None, validate_args=None)
+            dist = Categorical(probs=probs)
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
@@ -358,7 +359,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             out = self.output_layer(ht)
             probs = F.softmax(out, dim=1)
             # sample
-            dist = Categorical(probs=None, logits=None, validate_args=None)
+            dist = Categorical(probs=probs)
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
