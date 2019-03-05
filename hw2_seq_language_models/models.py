@@ -48,9 +48,9 @@ class RNN(nn.Module):
         hidden_size:  The number of hidden units per layer
         seq_len:      The length of the input sequences
         vocab_size:   The number of tokens in the vocabulary (10,000 for Penn TreeBank)
-        num_layers:   The depth of the stack (i.e. the number of hidden layers at 
+        num_layers:   The depth of the stack (i.e. the number of hidden layers at
                       each time-step)
-        dp_keep_prob: The probability of *not* dropping out units in the 
+        dp_keep_prob: The probability of *not* dropping out units in the
                       non-recurrent connections.
                       Do not apply dropout on recurrent connections.
         """
@@ -86,9 +86,6 @@ class RNN(nn.Module):
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
-
-        self.linear_x = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
 
         self.hidden_layers = nn.ModuleList(
             [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
@@ -133,7 +130,7 @@ class RNN(nn.Module):
         # sequence).
         """
         Arguments:
-            - inputs: A mini-batch of input sequences, composed of integers that 
+            - inputs: A mini-batch of input sequences, composed of integers that
                         represent the index of the current token(s) in the vocabulary.
                             shape: (seq_len, batch_size)
             - hidden: The initial hidden states for every layer of the stacked RNN.
@@ -142,37 +139,34 @@ class RNN(nn.Module):
         Returns:
             - Logits for the softmax over output tokens at every time-step.
                   **Do NOT apply softmax to the outputs!**
-                  Pytorch's CrossEntropyLoss function (applied in ptb-lm.py) does 
+                  Pytorch's CrossEntropyLoss function (applied in ptb-lm.py) does
                   this computation implicitly.
                         shape: (seq_len, batch_size, vocab_size)
             - The final hidden states for every layer of the stacked RNN.
-                  These will be used as the initial hidden states for all the 
-                  mini-batches in an epoch, except for the first, where the return 
+                  These will be used as the initial hidden states for all the
+                  mini-batches in an epoch, except for the first, where the return
                   value of self.init_hidden will be used.
-                  See the repackage_hiddens function in ptb-lm.py for more details, 
+                  See the repackage_hiddens function in ptb-lm.py for more details,
                   if you are curious.
                         shape: (num_layers, batch_size, hidden_size)
         """
-        logits = []
-        hidden_t = init_hidden
-        embeddings = self.embedding_layer(inputs)
 
+            logits = []
+        previous_hidden = init_hidden
+        embeddings = self.embedding_layer(inputs)
         for t in range(self.seq_len):
             # emb_inp is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
 
-                h_inp = hidden_t[l] if t == 0 else ht[l]
-
-                inp = torch.cat((xt, h_inp), dim=1)
-                ht = self.linear_x[l](inp)
+                hidden = previous_hidden[l]
+                h_inp = torch.cat((xt, hidden), dim=1)
+                ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
-
                 if l < (self.num_layers - 1):
                     out = self.fc_layers[l](ht)
                 xt = out
-
             out = self.output_layer(ht)
             logits.append(out)
             previous_hidden = copy.deepcopy(hidden_state)
@@ -212,19 +206,18 @@ class RNN(nn.Module):
             # embedding is of shape(self.batch_size, self.emb_size)
             xt = self.embedding_layer(input)
             hidden_state = []
+
             for l in range(self.num_layers):
 
-                h_inp = hidden_t[l] if t == 0 else ht[l]
-
-                inp = torch.cat((xt, h_inp), dim=1)
-                ht = self.linear_x[l](inp)
+                hidden = previous_hidden[l]
+                h_inp = torch.cat((xt, hidden), dim=1)
+                ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
-
                 if l < (self.num_layers - 1):
                     out = self.fc_layers[l](ht)
                 xt = out
 
-            out = self.output_layer(ht)
+                out = self.output_layer(ht)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=None, logits=None, validate_args=None)
@@ -480,7 +473,7 @@ class WordEmbedding(nn.Module):
         self.n_units = n_units
 
     def forward(self, x):
-        #print (x)
+        # print (x)
         return self.lut(x) * math.sqrt(self.n_units)
 
 
