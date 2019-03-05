@@ -161,7 +161,6 @@ class RNN(nn.Module):
             for l in range(self.num_layers):
 
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
                 h_inp = torch.cat((xt, hidden), dim=1)
                 ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
@@ -211,7 +210,6 @@ class RNN(nn.Module):
             for l in range(self.num_layers):
 			
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
                 h_inp = torch.cat((xt, hidden), dim=1)
                 ht = self.hidden_layers[l](h_inp)
                 hidden_state.append(ht)
