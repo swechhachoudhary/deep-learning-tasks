@@ -217,7 +217,7 @@ class RNN(nn.Module):
                     out = self.fc_layers[l](ht)
                 xt = out
 
-                out = self.output_layer(ht)
+            out = self.output_layer(ht)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=None, logits=None, validate_args=None)
