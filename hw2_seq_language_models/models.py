@@ -86,6 +86,9 @@ class RNN(nn.Module):
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
+	
+	self.linear_x = nn.ModuleList(
+	    [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
 
         self.hidden_layers = nn.ModuleList(
             [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
@@ -151,6 +154,33 @@ class RNN(nn.Module):
                   if you are curious.
                         shape: (num_layers, batch_size, hidden_size)
         """
+	logits = []
+        hidden_t = init_hidden
+        embeddings = self.embedding_layer(inputs)
+
+        for t in range(self.seq_len):
+            # emb_inp is of shape(self.batch_size, self.emb_size)
+            xt = embeddings[t]
+            hidden_state = []
+            for l in range(self.num_layers):
+		
+		h_inp = hidden[l] if t==0 else ht[l]
+
+                inp = torch.cat((xt, h_inp), dim=1)
+                ht = self.linear_x[l](inp)
+                hidden_state.append(ht)
+
+                if l < (self.num_layers - 1):
+                    out = self.fc_layers[l](ht)
+                xt = out
+
+            out = self.output_layer(ht)
+            logits.append(out)
+            previous_hidden = copy.deepcopy(hidden_state)
+
+        logits = torch.stack(logits, dim=0)
+        hidden = torch.stack(previous_hidden, dim=0)
+
         return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
 
     def generate(self, input, hidden, generated_seq_len):
@@ -177,10 +207,38 @@ class RNN(nn.Module):
             - Sampled sequences of tokens
                         shape: (generated_seq_len, batch_size)
         """
+	samples = []
+        
+        for t in range(generated_seq_len):
+            # embedding is of shape(self.batch_size, self.emb_size)
+            xt = self.embedding_layer(input)
+            hidden_state = []
+            for l in range(self.num_layers):
+
+                h_inp = hidden[l] if t==0 else ht[l]
+
+                inp = torch.cat((xt, h_inp), dim=1)
+                ht = self.linear_x[l](inp)
+                hidden_state.append(ht)
+
+                if l < (self.num_layers - 1):
+                    out = self.fc_layers[l](ht)
+                xt = out
+
+            out = self.output_layer(ht)
+            probs = F.softmax(out, dim=1)
+            # sample
+            dist = Categorical(probs=None, logits=None, validate_args=None)
+            sample = dist.sample()
+            samples.append(sample.squeeze())
+            input = sample.squeeze()
+            previous_hidden = copy.deepcopy(hidden_state)
+
+        samples = torch.stack(samples, dim=0)
 
         return samples
 
-
+                            
 # Problem 2
 class GRU(nn.Module):  # Implement a stacked GRU RNN
     """
