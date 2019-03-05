@@ -70,11 +70,41 @@ class RNN(nn.Module):
         # for Pytorch to recognize these parameters as belonging to this nn.Module
         # and compute their gradients automatically. You're not obligated to use the
         # provided clones function.
+	
+        self.seq_len = seq_len
+        self.hidden_size = hidden_size
+        self.batch_size = batch_size
+        self.vocab_size = vocab_size
+        self.num_layers = num_layers
+
+        in_feat = [emb_size + hidden_size] + \
+            [hidden_size + hidden_size] * (self.num_layers - 1)
+        out_feat = hidden_size
+
+        self.sigmoid = nn.Sigmoid()
+
+        self.dropout = nn.Dropout(p=1 - dp_keep_prob)
+
+        self.embedding_layer = nn.Embedding(vocab_size, emb_size)
+
+        self.hidden_layers = nn.ModuleList(
+            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+
+        self.fc_layers = nn.ModuleList(
+            [nn.Sequential(self.dropout, nn.Linear(hidden_size, hidden_size), nn.Sigmoid()) for _ in range(num_layers - 1)])
+
+        self.output_layer = nn.Sequential(
+            self.dropout, nn.Linear(hidden_size, vocab_size))
 
     def init_weights_uniform(self):
         # TODO ========================
         # Initialize all the weights uniformly in the range [-0.1, 0.1]
         # and all the biases to 0 (in place)
+	for p in self.parameters():
+            if p.dim() == 1:
+                nn.init.constant_(p, 0.0)
+            else:
+                nn.init.uniform_(p, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -82,7 +112,8 @@ class RNN(nn.Module):
         """
         This is used for the first mini-batch in an epoch, only.
         """
-        return  # a parameter tensor of shape (self.num_layers, self.batch_size, self.hidden_size)
+        return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
+
 
     def forward(self, inputs, hidden):
         # TODO ========================
