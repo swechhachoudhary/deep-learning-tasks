@@ -169,7 +169,7 @@ class RNN(nn.Module):
                 xt = out
             out = self.output_layer(ht)
             logits.append(out)
-            previous_hidden = copy.deepcopy(hidden_state)
+            previous_hidden = copy.copy(hidden_state)
 
         logits = torch.stack(logits, dim=0)
         hidden = torch.stack(previous_hidden, dim=0)
@@ -225,7 +225,7 @@ class RNN(nn.Module):
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
-            previous_hidden = copy.deepcopy(hidden_state)
+            previous_hidden = copy.copy(hidden_state)
 
         samples = torch.stack(samples, dim=0)
 
@@ -313,7 +313,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 xt = out
             out = self.output_layer(ht)
             logits.append(out)
-            previous_hidden = copy.deepcopy(hidden_state)
+            previous_hidden = copy.copy(hidden_state)
 
         logits = torch.stack(logits, dim=0)
         hidden = torch.stack(previous_hidden, dim=0)
@@ -363,7 +363,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
-            previous_hidden = copy.deepcopy(hidden_state)
+            previous_hidden = copy.copy(hidden_state)
 
         samples = torch.stack(samples, dim=0)
 
