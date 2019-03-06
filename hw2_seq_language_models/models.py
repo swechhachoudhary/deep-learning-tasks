@@ -3,7 +3,7 @@ import torch.nn as nn
 
 import numpy as np
 import torch.nn.functional as F
-import torch.distributions.categorical.Categorical
+from torch.distributions.categorical import Categorical
 import math
 import copy
 import time
