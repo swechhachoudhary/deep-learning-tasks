@@ -116,6 +116,12 @@ class RNN(nn.Module):
         k = (1 / (self.hidden_size)) ** (0.5)
         
         nn.init.uniform_(self.embedding_layer.weight, -0.1, 0.1)
+        
+        for p,p1 in itertools.zip_longest(self.hidden_layers.parameters(),self.fc_layers.parameters()):
+
+            if p in self.hidden_layers.parameters(): nn.init.uniform_(p, -k, k)
+            if p in self.fc_layers.parameters(): nn.init.uniform_(p1, -k, k)
+       
 
     def init_hidden(self):
         # TODO ========================
