@@ -117,10 +117,15 @@ class RNN(nn.Module):
         
         nn.init.uniform_(self.embedding_layer.weight, -0.1, 0.1)
         
-        for p,p1 in itertools.zip_longest(self.hidden_layers.parameters(),self.fc_layers.parameters()):
+        for p,p1,po in itertools.zip_longest(self.hidden_layers.parameters(),self.fc_layers.parameters(),self.output_layer.parameters()):
 
             if p in self.hidden_layers.parameters(): nn.init.uniform_(p, -k, k)
-            if p in self.fc_layers.parameters(): nn.init.uniform_(p1, -k, k)
+            if p1 in self.fc_layers.parameters(): nn.init.uniform_(p1, -k, k)
+            if po in self.output_layer.parameters():
+                if po.dim()==1 : 
+                    nn.init.constant_(p, 0.0)
+                else:
+                    nn.init.uniform_(p, -0.1, 0.1)
        
 
     def init_hidden(self):
