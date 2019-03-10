@@ -597,7 +597,7 @@ def subsequent_mask(size):
 class Batch:
     "Object for holding a batch of data with mask during training."
 
-    def __init__(self, x, pad=0):
+    def __init__(self, x, pad=-1):
         self.data = x
         self.mask = self.make_mask(self.data, pad)
 
