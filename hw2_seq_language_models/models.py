@@ -81,17 +81,17 @@ class RNN(nn.Module):
             [hidden_size + hidden_size] * (self.num_layers - 1)
         out_feat = hidden_size
 
-        self.sigmoid = nn.Sigmoid()
+        self.tanh = nn.Tanh()
 
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
         self.hidden_layers = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+            [nn.Sequential(nn.Linear(in_feat[i], out_feat), self.tanh) for i in range(num_layers)])
 
         self.fc_layers = nn.ModuleList(
-            [nn.Sequential(self.dropout, nn.Linear(hidden_size, hidden_size), nn.Sigmoid()) for _ in range(num_layers - 1)])
+            [nn.Sequential(self.dropout, nn.Linear(hidden_size, hidden_size), self.tanh) for _ in range(num_layers - 1)])
 
         self.output_layer = nn.Sequential(
             self.dropout, nn.Linear(hidden_size, vocab_size))
@@ -313,7 +313,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 xt = out
             out = self.output_layer(ht)
             logits.append(out)
-            previous_hidden = copy.copy(hidden_state)
+            previous_hidden = hidden_state
 
         logits = torch.stack(logits, dim=0)
         hidden = torch.stack(previous_hidden, dim=0)
