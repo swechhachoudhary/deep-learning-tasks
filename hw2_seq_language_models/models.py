@@ -9,6 +9,7 @@ import copy
 import time
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import itertools
 
 # NOTE ==============================================
 #
@@ -33,7 +34,16 @@ import matplotlib.pyplot as plt
 
 
 def clones(module, N):
-    "A helper function for producing N identical layers (each with their own parameters)."
+    """
+    A helper function for producing N identical layers (each with their own parameters).
+    
+    inputs: 
+        module: a pytorch nn.module
+        N (int): the number of copies of that module to return
+
+    returns:
+        a ModuleList with the copies of the module (the ModuleList is itself also a module)
+    """
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 # Problem 1
@@ -98,13 +108,25 @@ class RNN(nn.Module):
 
     def init_weights_uniform(self):
         # TODO ========================
-        # Initialize all the weights uniformly in the range [-0.1, 0.1]
-        # and all the biases to 0 (in place)
-        for p in self.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.0)
-            else:
-                nn.init.uniform_(p, a=-0.1, b=0.1)
+        # Initialize the embedding and output weights uniformly in the range [-0.1, 0.1]
+        # and output biases to 0 (in place). The embeddings should not use a bias vector.
+        # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly 
+        # in the range [-k, k] where k is the square root of 1/hidden_size
+        
+        k = (1 / (self.hidden_size)) ** (0.5)
+        
+        nn.init.uniform_(self.embedding_layer.weight, -0.1, 0.1)
+        
+        for p,p1,po in itertools.zip_longest(self.hidden_layers.parameters(),self.fc_layers.parameters(),self.output_layer.parameters()):
+
+            if p is not None: nn.init.uniform_(p, -k, k)
+            if p1 is not None: nn.init.uniform_(p1, -k, k)
+            if po is not None:
+                if po.dim()==1 : 
+                    nn.init.constant_(p, 0.0)
+                else:
+                    nn.init.uniform_(p, -0.1, 0.1)
+       
 
     def init_hidden(self):
         # TODO ========================
@@ -116,7 +138,7 @@ class RNN(nn.Module):
 
     def forward(self, inputs, init_hidden):
         # TODO ========================
-        # Compute the forward pass, using a nested python for loops.
+        # Compute the forward pass, using nested python for loops.
         # The outer for loop should iterate over timesteps, and the
         # inner for loop should iterate over hidden layers of the stack.
         #
@@ -277,6 +299,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
     def init_weights_uniform(self):
         # TODO ========================
+        
         for p in self.parameters():
             if p.dim() == 1:
                 nn.init.constant_(p, 0.0)
@@ -454,7 +477,7 @@ class MultiHeadedAttention(nn.Module):
 
     def forward(self, query, key, value, mask=None):
         # TODO: implement the masked multi-head attention.
-        # query, key, and value all have size: (batch_size, seq_len, self.n_units, self.d_k)
+        # query, key, and value all have size: (batch_size, seq_len, self.n_units)
         # mask has size: (batch_size, seq_len, seq_len)
         # As described in the .tex, apply input masking to the softmax
         # generating the "attention values" (i.e. A_i in the .tex)
@@ -586,7 +609,7 @@ def subsequent_mask(size):
 class Batch:
     "Object for holding a batch of data with mask during training."
 
-    def __init__(self, x, pad=0):
+    def __init__(self, x, pad=-1):
         self.data = x
         self.mask = self.make_mask(self.data, pad)
 
