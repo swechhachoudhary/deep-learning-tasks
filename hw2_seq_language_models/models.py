@@ -9,6 +9,7 @@ import copy
 import time
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import itertools
 
 # NOTE ==============================================
 #
@@ -111,11 +112,19 @@ class RNN(nn.Module):
         # and output biases to 0 (in place). The embeddings should not use a bias vector.
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly 
         # in the range [-k, k] where k is the square root of 1/hidden_size
-        for p in self.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.0)
-            else:
-                nn.init.uniform_(p, a=-0.1, b=0.1)
+        
+        k = (1 / (self.hidden_size)) ** (0.5)
+        
+        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        nn.init.uniform_(self.output_layer.weight, -0.1,  0.1)
+        nn.init.zeros_(self.output_layer.bias)
+        
+       for mod,module in itertools.izip_longest(self.hidden_layers,self.fc_layers):
+        
+            nn.init.uniform_(mod.weight, -k, k)
+            nn.init.uniform_(mod.bias, -k, k)
+            nn.init.uniform_(module.weight, -k, k)
+            nn.init.uniform_(module.bias, -k, k)
 
     def init_hidden(self):
         # TODO ========================
@@ -288,6 +297,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
     def init_weights_uniform(self):
         # TODO ========================
+        
         for p in self.parameters():
             if p.dim() == 1:
                 nn.init.constant_(p, 0.0)
