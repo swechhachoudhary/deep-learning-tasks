@@ -118,13 +118,6 @@ class RNN(nn.Module):
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
         nn.init.uniform_(self.output_layer.weight, -0.1,  0.1)
         nn.init.zeros_(self.output_layer.bias)
-        
-       for mod,module in itertools.zip_longest(self.hidden_layers,self.fc_layers):
-        
-            if mod.weight in self.hidden_layers : nn.init.uniform_(mod.weight, -k, k)
-            if mod.bias in self.hidden_layers : nn.init.uniform_(mod.bias, -k, k)
-            if module.weight in self.fc_layers : nn.init.uniform_(module.weight, -k, k)
-            if module.bias in self.fc_layers : nn.init.uniform_(module.bias, -k, k)
 
     def init_hidden(self):
         # TODO ========================
