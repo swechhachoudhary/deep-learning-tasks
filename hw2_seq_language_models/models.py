@@ -115,9 +115,7 @@ class RNN(nn.Module):
         
         k = (1 / (self.hidden_size)) ** (0.5)
         
-        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
-        nn.init.uniform_(self.output_layer.weight, -0.1,  0.1)
-        nn.init.zeros_(self.output_layer.bias)
+        nn.init.uniform_(self.embedding_layer.weight, -0.1, 0.1)
 
     def init_hidden(self):
         # TODO ========================
