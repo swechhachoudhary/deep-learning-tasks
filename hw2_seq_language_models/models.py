@@ -474,7 +474,6 @@ class MultiHeadedAttention(nn.Module):
         # Note: the only Pytorch modules you are allowed to use are nn.Linear
         # and nn.Dropout
         self.n_heads = n_heads
-
         self.q_ws = nn.ModuleList(
             [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
         )
@@ -484,8 +483,8 @@ class MultiHeadedAttention(nn.Module):
         self.v_ws = nn.ModuleList(
             [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
         )
-
         self.o_w = nn.Linear(n_heads * self.d_k, n_units)  # (n_units, n_units)
+        self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
         # TODO: implement the masked multi-head attention.
@@ -502,7 +501,8 @@ class MultiHeadedAttention(nn.Module):
             # pre_softmax.shape: (batch_size, seq_len, seq_len)
             if mask is not None:
                 pre_softmax = pre_softmax * mask.float() - (1e9 * (1 - mask.float()))
-            heads.append(F.softmax(pre_softmax, dim=2) @ self.v_ws[i](value))
+            a_i = self.dropout(F.softmax(pre_softmax, dim=2))
+            heads.append(a_i @ self.v_ws[i](value))
 
         # return size: (batch_size, seq_len, self.n_units)
         return self.o_w(torch.cat(heads, dim=2))
