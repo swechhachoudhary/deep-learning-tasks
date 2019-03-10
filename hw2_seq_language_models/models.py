@@ -482,7 +482,6 @@ and a linear layer followed by a softmax.
 
 # TODO: implement this class
 class MultiHeadedAttention(nn.Module):
-
     def __init__(self, n_heads, n_units, dropout=0.1):
         """
         n_heads: the number of attention heads
@@ -501,6 +500,18 @@ class MultiHeadedAttention(nn.Module):
         # TODO: create/initialize any necessary parameters or layers
         # Note: the only Pytorch modules you are allowed to use are nn.Linear
         # and nn.Dropout
+        self.n_heads = n_heads
+        self.q_ws = nn.ModuleList(
+            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
+        )
+        self.k_ws = nn.ModuleList(
+            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
+        )
+        self.v_ws = nn.ModuleList(
+            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
+        )
+        self.o_w = nn.Linear(n_heads * self.d_k, n_units)  # (n_units, n_units)
+        self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
         # TODO: implement the masked multi-head attention.
@@ -509,8 +520,19 @@ class MultiHeadedAttention(nn.Module):
         # As described in the .tex, apply input masking to the softmax
         # generating the "attention values" (i.e. A_i in the .tex)
         # Also apply dropout to the attention values.
+        heads = []
+        for i in range(self.n_heads):
+            pre_softmax = (
+                self.q_ws[i](query) @ self.k_ws[i](key).permute(0, 2, 1)
+            ) / math.sqrt(self.d_k)
+            # pre_softmax.shape: (batch_size, seq_len, seq_len)
+            if mask is not None:
+                pre_softmax = pre_softmax * mask.float() - (1e9 * (1 - mask.float()))
+            a_i = self.dropout(F.softmax(pre_softmax, dim=2))
+            heads.append(a_i @ self.v_ws[i](value))
 
-        return  # size: (batch_size, seq_len, self.n_units)
+        # return size: (batch_size, seq_len, self.n_units)
+        return self.o_w(torch.cat(heads, dim=2))
 
 
 #-------------------------------------------------------------------------
