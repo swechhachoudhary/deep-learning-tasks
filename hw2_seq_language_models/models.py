@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import math
 import numpy as np
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
@@ -36,7 +36,7 @@ import itertools
 def clones(module, N):
     """
     A helper function for producing N identical layers (each with their own parameters).
-    
+
     inputs: 
         module: a pytorch nn.module
         N (int): the number of copies of that module to return
@@ -87,8 +87,7 @@ class RNN(nn.Module):
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + \
-            [hidden_size + hidden_size] * (self.num_layers - 1)
+        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
         out_feat = hidden_size
 
         self.tanh = nn.Tanh()
@@ -110,23 +109,24 @@ class RNN(nn.Module):
         # TODO ========================
         # Initialize the embedding and output weights uniformly in the range [-0.1, 0.1]
         # and output biases to 0 (in place). The embeddings should not use a bias vector.
-        # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly 
+        # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
-        
-        k = (1 / (self.hidden_size)) ** (0.5)
-        
-        nn.init.uniform_(self.embedding_layer.weight, -0.1, 0.1)
-        
-        for p,p1,po in itertools.zip_longest(self.hidden_layers.parameters(),self.fc_layers.parameters(),self.output_layer.parameters()):
 
-            if p is not None: nn.init.uniform_(p, -k, k)
-            if p1 is not None: nn.init.uniform_(p1, -k, k)
+        k = math.sqrt(1. / self.hidden_size)
+
+        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+
+        for p, p1, po in itertools.zip_longest(self.hidden_layers.parameters(), self.fc_layers.parameters(), self.output_layer.parameters()):
+
+            if p is not None:
+                nn.init.uniform_(p, a=-k, b=k)
+            if p1 is not None:
+                nn.init.uniform_(p1, a=-k, b=k)
             if po is not None:
-                if po.dim()==1 : 
+                if po.dim() == 1:
                     nn.init.constant_(p, 0.0)
                 else:
-                    nn.init.uniform_(p, -0.1, 0.1)
-       
+                    nn.init.uniform_(p, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -299,8 +299,35 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
     def init_weights_uniform(self):
         # TODO ========================
-        
-        for p in self.parameters():
+        # Initialize the embedding and output weights uniformly in the range [-0.1, 0.1]
+        # and output biases to 0 (in place). The embeddings should not use a bias vector.
+        # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
+        # in the range [-k, k] where k is the square root of 1/hidden_size
+
+        # Embedding layer weights
+        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+
+        k = math.sqrt(1. / self.hidden_size)
+
+        reset_param = self.reset_gates.parameters()
+        forget_param = self.forget_gates.parameters()
+        hidden_param = self.hidden_layers.parameters()
+        fc_param = self.fc_layers.parameters()
+
+        # hidden layers and fully connected layers parameters
+        for rp, fp, hp, fc_p in itertools.zip_longest(reset_param, forget_param, hidden_param, fc_param):
+
+            if rp is not None:
+                nn.init.uniform_(rp, a=-k, b=k)
+            if fp is not None:
+                nn.init.uniform_(fp, a=-k, b=k)
+            if hp is not None:
+                nn.init.uniform_(hp, a=-k, b=k)
+            if fc_p is not None:
+                nn.init.uniform_(fc_p, a=-k, b=k)
+
+        # output layer parameters
+        for p in self.output_layer.parameters():
             if p.dim() == 1:
                 nn.init.constant_(p, 0.0)
             else:
