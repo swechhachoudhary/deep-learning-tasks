@@ -177,7 +177,7 @@ class RNN(nn.Module):
         previous_hidden = init_hidden
         embeddings = self.embedding_layer(inputs)
         for t in range(self.seq_len):
-            # emb_inp is of shape(self.batch_size, self.emb_size)
+            # xt is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
@@ -191,7 +191,7 @@ class RNN(nn.Module):
                 xt = out
             out = self.output_layer(ht)
             logits.append(out)
-            previous_hidden = copy.copy(hidden_state)
+            previous_hidden = hidden_state
 
         logits = torch.stack(logits, dim=0)
         hidden = torch.stack(previous_hidden, dim=0)
@@ -226,7 +226,7 @@ class RNN(nn.Module):
         previous_hidden = init_hidden
 
         for t in range(generated_seq_len):
-            # embedding is of shape(self.batch_size, self.emb_size)
+            # xt is of shape(self.batch_size, self.emb_size)
             xt = self.embedding_layer(input)
             hidden_state = []
 
@@ -247,7 +247,7 @@ class RNN(nn.Module):
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
-            previous_hidden = copy.copy(hidden_state)
+            previous_hidden = hidden_state
 
         samples = torch.stack(samples, dim=0)
 
@@ -272,8 +272,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + \
-            [hidden_size + hidden_size] * (self.num_layers - 1)
+        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
         out_feat = hidden_size
 
         self.sigmoid = nn.Sigmoid()
@@ -345,7 +344,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         previous_hidden = init_hidden
         embeddings = self.embedding_layer(inputs)
         for t in range(self.seq_len):
-            # emb_inp is of shape(self.batch_size, self.emb_size)
+            # xt is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
@@ -413,7 +412,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             sample = dist.sample()
             samples.append(sample.squeeze())
             input = sample.squeeze()
-            previous_hidden = copy.copy(hidden_state)
+            previous_hidden = hidden_state
 
         samples = torch.stack(samples, dim=0)
 
