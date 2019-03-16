@@ -1,1 +1,4 @@
 .DS_Store
+hw2_seq_language_models/GRU.py
+hw2_seq_language_models/GRU_SGD_LR_SCHEDULE_model=GRU_optimizer=SGD_LR_SCHEDULE_initial_lr=10_batch_size=20_seq_len=35_hidden_size=1500_num_layers=2_dp_keep_prob=0.35_save_best_0/
+hw2_seq_language_models/RNN_.py
