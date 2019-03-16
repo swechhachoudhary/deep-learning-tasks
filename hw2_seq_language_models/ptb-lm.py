@@ -105,7 +105,7 @@ from models import make_model as TRANSFORMER
 parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Modeling')
 
 # Arguments you may need to set to run different experiments in 4.1 & 4.2.
-parser.add_argument('--data', type=str, default='data',
+parser.add_argument('--data', type=str, default='/home/user44/deep-learning-tasks/hw2_seq_language_models/data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
 parser.add_argument('--model', type=str, default='GRU',
@@ -421,7 +421,7 @@ def run_epoch(model, data, is_train=False, lr=1.0):
                         p.data.add_(-lr, p.grad.data)
             if step % (epoch_size // 10) == 10:
                 print('step: ' + str(step) + '\t'
-                      + "loss (sum over all examples' seen this epoch)": '+ str(costs) + '\t' \
+                      + "loss (sum over all examples' seen this epoch):" + str(costs) + '\t' \
                     + 'speed(wps): ' + str(iters * model.batch_size / (time.time() - start_time)))
     return np.exp(costs / iters), losses
 
