@@ -87,10 +87,6 @@ class RNN(nn.Module):
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
-        in_feat =
-        out_feat = hidden_size
-
         self.tanh = nn.Tanh()
 
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
