@@ -132,7 +132,7 @@ class RNN(nn.Module):
         """
         This is used for the first mini-batch in an epoch, only.
         """
-        return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
+        return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
     def forward(self, inputs, init_hidden):
         # TODO ========================
