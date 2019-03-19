@@ -99,7 +99,7 @@ class RNN(nn.Module):
 
         self.fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.output_layer = nn.Sequential(self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.output_layer = nn.Linear(hidden_size, vocab_size)
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -112,17 +112,14 @@ class RNN(nn.Module):
 
         nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        for p, fc_p, po in itertools.zip_longest(self.rec_layers.parameters(), self.fc_layers.parameters(), self.output_layer.parameters()):
-
-            if p is not None:
-                nn.init.uniform_(p, a=-k, b=k)
-            if fc_p is not None:
-                nn.init.uniform_(fc_p, a=-k, b=k)
-            if po is not None:
-                if po.dim() == 1:
-                    nn.init.constant_(po, 0.0)
-                else:
-                    nn.init.uniform_(po, a=-0.1, b=0.1)
+        for layer in self.rec_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.uniform_(layer.bias, a=-k, b=k)
+        for layer in self.fc_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.uniform_(layer.bias, a=-k, b=k)
+        nn.init.constant_(self.output_layer.bias, 0.0)
+        nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -182,7 +179,7 @@ class RNN(nn.Module):
                 ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
-            out = self.output_layer(ht)
+            out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
@@ -228,7 +225,7 @@ class RNN(nn.Module):
                 ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
-            out = self.output_layer(ht)
+            out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=probs)
