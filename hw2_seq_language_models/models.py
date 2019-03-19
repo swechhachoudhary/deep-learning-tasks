@@ -87,6 +87,8 @@ class RNN(nn.Module):
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
+        in_feat = [emb_size] + [hidden_size] * (self.num_layers - 1)
+
         self.tanh = nn.Tanh()
 
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
@@ -95,7 +97,7 @@ class RNN(nn.Module):
 
         self.rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
 
-        self.fc_layers = nn.ModuleList([nn.Linear(emb_size, hidden_size, bias=False) for i in range(num_layers)])
+        self.fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
         self.output_layer = nn.Sequential(self.dropout, nn.Linear(hidden_size, vocab_size))
 
@@ -258,26 +260,27 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
-        out_feat = hidden_size
+        in_feat = [emb_size] + [hidden_size] * (self.num_layers - 1)
 
         self.sigmoid = nn.Sigmoid()
+
+        self.tanh = nn.Tanh()
 
         self.dropout = nn.Dropout(p=1 - dp_keep_prob)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
-        self.reset_gates = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.rg_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.rg_fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.forget_gates = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.fg_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.fg_fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.hidden_layers = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.hidden_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.hidden_fc_layers = nn.ModuleList(
+            [nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.output_layer = nn.Sequential(
-            self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.output_layer = nn.Sequential(self.dropout, nn.Linear(hidden_size, vocab_size))
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -289,21 +292,30 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         # Embedding layer weights
         nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        k = math.sqrt(1. / self.hidden_size)
+        k = 1. / math.sqrt(self.hidden_size)
 
-        reset_param = self.reset_gates.parameters()
-        forget_param = self.forget_gates.parameters()
-        hidden_param = self.hidden_layers.parameters()
+        rg_rec_param = self.rg_rec_layers.parameters()
+        rg_fc_param = self.rg_fc_layers.parameters()
+        fg_rec_param = self.fg_rec_layers.parameters()
+        fg_fc_param = self.fg_fc_layers.parameters()
+        h_rec_param = self.hidden_rec_layers.parameters()
+        h_fc_param = self.hidden_fc_layers.parameters()
 
         # hidden layers and fully connected layers parameters
-        for rp, fp, hp, in itertools.zip_longest(reset_param, forget_param, hidden_param):
+        for rg_r, rg_fc, fg_r, fg_fc, h_r, h_fc in itertools.zip_longest(rg_rec_param, rg_fc_param, fg_rec_param, fg_fc_param, h_rec_param, h_fc_param):
 
-            if rp is not None:
-                nn.init.uniform_(rp, a=-k, b=k)
-            if fp is not None:
-                nn.init.uniform_(fp, a=-k, b=k)
-            if hp is not None:
-                nn.init.uniform_(hp, a=-k, b=k)
+            if rg_r is not None:
+                nn.init.uniform_(rg_r, a=-k, b=k)
+            if rg_fc is not None:
+                nn.init.uniform_(rg_fc, a=-k, b=k)
+            if fg_r is not None:
+                nn.init.uniform_(fg_r, a=-k, b=k)
+            if fg_fc is not None:
+                nn.init.uniform_(fg_fc, a=-k, b=k)
+            if h_r is not None:
+                nn.init.uniform_(h_r, a=-k, b=k)
+            if h_fc is not None:
+                nn.init.uniform_(h_fc, a=-k, b=k)
 
         # output layer parameters
         for p in self.output_layer.parameters():
@@ -316,7 +328,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         # TODO ========================
         # a parameter tensor of shape (self.num_layers, self.batch_size,
         # self.hidden_size)
-        return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
+        return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
     def forward(self, inputs, init_hidden):
         # TODO ========================
@@ -328,14 +340,11 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
-                rt = self.reset_gates[l](inp)
-                zt = self.forget_gates[l](inp)
-                h_inp = torch.cat((xt, rt * hidden), dim=1)
-                h_hat = self.hidden_layers[l](h_inp)
-                ht = (1 - zt) * hidden + zt * h_hat
+                rt = self.sigmoid(self.rg_fc_layers[l](xt) + self.rg_rec_layers[l](hidden))
+                zt = self.sigmoid(self.fg_fc_layers[l](xt) + self.fg_rec_layers[l](hidden))
+                ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
+                ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(ht)
