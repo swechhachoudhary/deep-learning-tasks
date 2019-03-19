@@ -88,6 +88,7 @@ class RNN(nn.Module):
         self.num_layers = num_layers
 
         in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
+        in_feat =
         out_feat = hidden_size
 
         self.tanh = nn.Tanh()
@@ -96,11 +97,11 @@ class RNN(nn.Module):
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
-        self.hidden_layers = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), self.tanh) for i in range(num_layers)])
+        self.rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
 
-        self.output_layer = nn.Sequential(
-            self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.fc_layers = nn.ModuleList([nn.Linear(emb_size, hidden_size, bias=False) for i in range(num_layers)])
+
+        self.output_layer = nn.Sequential(self.dropout, nn.Linear(hidden_size, vocab_size))
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -109,19 +110,21 @@ class RNN(nn.Module):
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
 
-        k = math.sqrt(1. / self.hidden_size)
+        k = 1. / math.sqrt(self.hidden_size)
 
         nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        for p, po in itertools.zip_longest(self.hidden_layers.parameters(), self.output_layer.parameters()):
+        for p, fc_p, po in itertools.zip_longest(self.rec_layers.parameters(), self.fc_layers.parameters(), self.output_layer.parameters()):
 
             if p is not None:
                 nn.init.uniform_(p, a=-k, b=k)
+            if fc_p is not None:
+                nn.init.uniform_(fc_p, a=-k, b=k)
             if po is not None:
                 if po.dim() == 1:
-                    nn.init.constant_(p, 0.0)
+                    nn.init.constant_(po, 0.0)
                 else:
-                    nn.init.uniform_(p, a=-0.1, b=0.1)
+                    nn.init.uniform_(po, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -176,10 +179,9 @@ class RNN(nn.Module):
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                h_inp = torch.cat((xt, hidden), dim=1)
-                ht = self.hidden_layers[l](h_inp)
+                ht_hat = self.rec_layers[l](hidden)
+                ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(ht)
@@ -222,12 +224,10 @@ class RNN(nn.Module):
             # xt is of shape(self.batch_size, self.emb_size)
             xt = self.dropout(self.embedding_layer(input))
             hidden_state = []
-
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                h_inp = torch.cat((xt, hidden), dim=1)
-                ht = self.hidden_layers[l](h_inp)
+                ht_hat = self.rec_layers[l](hidden)
+                ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(ht)
