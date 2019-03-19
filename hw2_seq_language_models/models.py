@@ -380,14 +380,11 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             xt = self.dropout(self.embedding_layer(input))
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
-                rt = self.reset_gates[l](inp)
-                zt = self.forget_gates[l](inp)
-                h_inp = torch.cat((xt, rt * hidden), dim=1)
-                h_hat = self.hidden_layers[l](h_inp)
-                ht = (1 - zt) * hidden + zt * h_hat
+                rt = self.sigmoid(self.rg_fc_layers[l](xt) + self.rg_rec_layers[l](hidden))
+                zt = self.sigmoid(self.fg_fc_layers[l](xt) + self.fg_rec_layers[l](hidden))
+                ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
+                ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(ht)
