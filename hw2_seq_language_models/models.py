@@ -91,7 +91,9 @@ class RNN(nn.Module):
 
         self.tanh = nn.Tanh()
 
-        self.dropout = nn.Dropout(p=1 - dp_keep_prob)
+        self.p = 1 - dp_keep_prob
+
+        self.dropout = nn.Dropout(p=self.p)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
@@ -262,7 +264,9 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
         self.tanh = nn.Tanh()
 
-        self.dropout = nn.Dropout(p=1 - dp_keep_prob)
+        self.p = 1 - dp_keep_prob
+
+        self.dropout = nn.Dropout(p=self.p)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
