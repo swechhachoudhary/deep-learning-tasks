@@ -102,6 +102,7 @@ class RNN(nn.Module):
         self.fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
         self.output_layer = nn.Linear(hidden_size, vocab_size)
+        self.init_weights_uniform()
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -109,18 +110,19 @@ class RNN(nn.Module):
         # and output biases to 0 (in place). The embeddings should not use a bias vector.
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
+        with torch.no_grad():
 
-        k = 1. / math.sqrt(self.hidden_size)
+            k = 1. / math.sqrt(self.hidden_size)
 
-        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+            nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        for layer in self.rec_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
-            nn.init.uniform_(layer.bias, a=-k, b=k)
-        for layer in self.fc_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
-        nn.init.constant_(self.output_layer.bias, 0.0)
-        nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
+            for layer in self.rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
+            for layer in self.fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.constant_(self.output_layer.bias, 0.0)
+            nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -281,6 +283,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             [nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
         self.output_layer = nn.Linear(hidden_size, vocab_size)
+        self.init_weights_uniform()
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -289,34 +292,36 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
 
-        # Embedding layer weights
-        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+        with torch.no_grad():
 
-        k = 1. / math.sqrt(self.hidden_size)
+            # Embedding layer weights
+            nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        for layer in self.rg_rec_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
-            nn.init.uniform_(layer.bias, a=-k, b=k)
+            k = 1. / math.sqrt(self.hidden_size)
 
-        for layer in self.rg_fc_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
+            for layer in self.rg_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
 
-        for layer in self.fg_rec_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
-            nn.init.uniform_(layer.bias, a=-k, b=k)
+            for layer in self.rg_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
 
-        for layer in self.fg_fc_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
+            for layer in self.fg_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
 
-        for layer in self.hidden_rec_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
-            nn.init.uniform_(layer.bias, a=-k, b=k)
+            for layer in self.fg_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
 
-        for layer in self.hidden_fc_layers:
-            nn.init.uniform_(layer.weight, a=-k, b=k)
+            for layer in self.hidden_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
 
-        nn.init.constant_(self.output_layer.bias, 0.0)
-        nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
+            for layer in self.hidden_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+
+            nn.init.constant_(self.output_layer.bias, 0.0)
+            nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
