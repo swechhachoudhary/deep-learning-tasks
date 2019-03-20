@@ -117,7 +117,6 @@ class RNN(nn.Module):
             nn.init.uniform_(layer.bias, a=-k, b=k)
         for layer in self.fc_layers:
             nn.init.uniform_(layer.weight, a=-k, b=k)
-            nn.init.uniform_(layer.bias, a=-k, b=k)
         nn.init.constant_(self.output_layer.bias, 0.0)
         nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
@@ -277,7 +276,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         self.hidden_fc_layers = nn.ModuleList(
             [nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.output_layer = nn.Sequential(self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.output_layer = nn.Linear(hidden_size, vocab_size)
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -291,35 +290,29 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
         k = 1. / math.sqrt(self.hidden_size)
 
-        rg_rec_param = self.rg_rec_layers.parameters()
-        rg_fc_param = self.rg_fc_layers.parameters()
-        fg_rec_param = self.fg_rec_layers.parameters()
-        fg_fc_param = self.fg_fc_layers.parameters()
-        h_rec_param = self.hidden_rec_layers.parameters()
-        h_fc_param = self.hidden_fc_layers.parameters()
+        for layer in self.rg_rec_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.uniform_(layer.bias, a=-k, b=k)
 
-        # hidden layers and fully connected layers parameters
-        for rg_r, rg_fc, fg_r, fg_fc, h_r, h_fc in itertools.zip_longest(rg_rec_param, rg_fc_param, fg_rec_param, fg_fc_param, h_rec_param, h_fc_param):
+        for layer in self.rg_fc_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
 
-            if rg_r is not None:
-                nn.init.uniform_(rg_r, a=-k, b=k)
-            if rg_fc is not None:
-                nn.init.uniform_(rg_fc, a=-k, b=k)
-            if fg_r is not None:
-                nn.init.uniform_(fg_r, a=-k, b=k)
-            if fg_fc is not None:
-                nn.init.uniform_(fg_fc, a=-k, b=k)
-            if h_r is not None:
-                nn.init.uniform_(h_r, a=-k, b=k)
-            if h_fc is not None:
-                nn.init.uniform_(h_fc, a=-k, b=k)
+        for layer in self.fg_rec_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.uniform_(layer.bias, a=-k, b=k)
 
-        # output layer parameters
-        for p in self.output_layer.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.0)
-            else:
-                nn.init.uniform_(p, a=-0.1, b=0.1)
+        for layer in self.fg_fc_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+
+        for layer in self.hidden_rec_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.uniform_(layer.bias, a=-k, b=k)
+
+        for layer in self.hidden_fc_layers:
+            nn.init.uniform_(layer.weight, a=-k, b=k)
+
+        nn.init.constant_(self.output_layer.bias, 0.0)
+        nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -344,7 +337,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
-            out = self.output_layer(ht)
+            out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
@@ -384,7 +377,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
-            out = self.output_layer(ht)
+            out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=probs)
