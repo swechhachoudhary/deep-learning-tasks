@@ -281,6 +281,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             [nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
         self.output_layer = nn.Linear(hidden_size, vocab_size)
+        self.init_weights_uniform()
 
     def init_weights_uniform(self):
         # TODO ========================

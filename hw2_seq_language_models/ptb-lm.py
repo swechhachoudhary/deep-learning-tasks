@@ -105,7 +105,7 @@ from models import make_model as TRANSFORMER
 parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Modeling')
 
 # Arguments you may need to set to run different experiments in 4.1 & 4.2.
-parser.add_argument('--data', type=str, default='data',
+parser.add_argument('--data', type=str, default='/home/user44/deep-learning-tasks/hw2_seq_language_models/data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
 parser.add_argument('--model', type=str, default='GRU',
@@ -137,7 +137,7 @@ parser.add_argument('--dp_keep_prob', type=float, default=0.35,
 
 # Arguments that you may want to make use of / implement more code for
 parser.add_argument('--debug', action='store_true')
-parser.add_argument('--save_dir', type=str, default='',
+parser.add_argument('--save_dir', type=str, default='/home/user44/deep-learning-tasks/hw2_seq_language_models/',
                     help='path to save the experimental config, logs, model \
                     This is automatically generated based on the command line \
                     arguments you pass and only needs to be set if you want a \
