@@ -199,7 +199,6 @@ class RNN(nn.Module):
             if keep_hidden_grad:
                 all_hidden.append(hidden_state)
 
-
         logits = torch.stack(logits, dim=0)
         last_hidden = torch.stack(previous_hidden, dim=0)
 
@@ -212,10 +211,9 @@ class RNN(nn.Module):
             # Return logits and all hidden
             return logits, all_hidden
 
-
         return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
 
-    def generate(self, input, init_hidden, generated):
+    def generate(self, input, init_hidden, generated_seq_len):
         # TODO ========================
         # Compute the forward pass, as in the self.forward method (above).
         # You'll probably want to copy substantial portions of that code here.
