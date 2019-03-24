@@ -220,14 +220,14 @@ class RNN(nn.Module):
 
         for t in range(generated_seq_len):
             # xt is of shape(self.batch_size, self.emb_size)
-            xt = self.dropout(self.embedding_layer(input))
+            xt = self.embedding_layer(input)
             hidden_state = []
             for l in range(self.num_layers):
                 hidden = previous_hidden[l]
                 ht_hat = self.rec_layers[l](hidden)
                 ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
-                xt = self.dropout(ht)
+                xt = ht
             out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
@@ -239,7 +239,7 @@ class RNN(nn.Module):
 
         samples = torch.stack(samples, dim=0)
 
-        return samples
+        return samples.numpy()
 
 
 # Problem 2
@@ -376,7 +376,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
         for t in range(generated_seq_len):
             # embedding is of shape(self.batch_size, self.emb_size)
-            xt = self.dropout(self.embedding_layer(input))
+            xt = self.embedding_layer(input)
             hidden_state = []
             for l in range(self.num_layers):
                 hidden = previous_hidden[l]
@@ -385,7 +385,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
                 ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
-                xt = self.dropout(ht)
+                xt = ht
             out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
@@ -397,7 +397,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
         samples = torch.stack(samples, dim=0)
 
-        return samples
+        return samples.numpy()
 
 
 # Problem 3
