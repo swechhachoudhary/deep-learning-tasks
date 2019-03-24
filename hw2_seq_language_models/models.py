@@ -37,7 +37,7 @@ def clones(module, N):
     """
     A helper function for producing N identical layers (each with their own parameters).
 
-    inputs: 
+    inputs:
         module: a pytorch nn.module
         N (int): the number of copies of that module to return
 
@@ -132,7 +132,7 @@ class RNN(nn.Module):
         """
         return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
-    def forward(self, inputs, init_hidden):
+    def forward(self, inputs, init_hidden, keep_hidden_grad=False):
         # TODO ========================
         # Compute the forward pass, using nested python for loops.
         # The outer for loop should iterate over timesteps, and the
@@ -171,6 +171,12 @@ class RNN(nn.Module):
 
         logits = []
         previous_hidden = init_hidden
+
+        if keep_hidden_grad:
+            # All hidden state are saved explicitly in case
+            # gradient needs to be plotted
+            all_hidden = []
+
         embeddings = self.dropout(self.embedding_layer(inputs))
         for t in range(self.seq_len):
             # xt is of shape(self.batch_size, self.emb_size)
@@ -180,18 +186,36 @@ class RNN(nn.Module):
                 hidden = previous_hidden[l]
                 ht_hat = self.rec_layers[l](hidden)
                 ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
+
+                if keep_hidden_grad:
+                    ht.retain_grad()
+
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
+            if keep_hidden_grad:
+                all_hidden.append(hidden_state)
+
+
         logits = torch.stack(logits, dim=0)
-        hidden = torch.stack(previous_hidden, dim=0)
+        last_hidden = torch.stack(previous_hidden, dim=0)
+
+        logits = logits.view(self.seq_len, self.batch_size, self.vocab_size)
+
+        if not keep_hidden_grad:
+            # return logits and last_hidden
+            return logits, last_hidden
+        else:
+            # Return logits and all hidden
+            return logits, all_hidden
+
 
         return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
 
-    def generate(self, input, init_hidden, generated_seq_len):
+    def generate(self, input, init_hidden, generated):
         # TODO ========================
         # Compute the forward pass, as in the self.forward method (above).
         # You'll probably want to copy substantial portions of that code here.
@@ -209,7 +233,7 @@ class RNN(nn.Module):
             - hidden: The initial hidden states for every layer of the stacked RNN.
                             shape: (num_layers, batch_size, hidden_size)
             - generated_seq_len: The length of the sequence to generate.
-                           Note that this can be different than the length used 
+                           Note that this can be different than the length used
                            for training (self.seq_len)
         Returns:
             - Sampled sequences of tokens
@@ -245,7 +269,7 @@ class RNN(nn.Module):
 # Problem 2
 class GRU(nn.Module):  # Implement a stacked GRU RNN
     """
-    Follow the same instructions as for RNN (above), but use the equations for 
+    Follow the same instructions as for RNN (above), but use the equations for
     GRU, not Vanilla RNN.
     """
 
@@ -329,10 +353,14 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         # self.hidden_size)
         return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
-    def forward(self, inputs, init_hidden):
+    def forward(self, inputs, init_hidden, keep_hidden_grad=False):
         # TODO ========================
         logits = []
         previous_hidden = init_hidden
+
+        if keep_hidden_grad:
+            all_hidden = []
+
         embeddings = self.dropout(self.embedding_layer(inputs))
         for t in range(self.seq_len):
             # xt is of shape(self.batch_size, self.emb_size)
@@ -344,14 +372,31 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
                 zt = self.sigmoid(self.fg_fc_layers[l](xt) + self.fg_rec_layers[l](hidden))
                 ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
                 ht = (1 - zt) * hidden + zt * ht_hat
+
+                # Enable retain grad for hidden
+                if keep_hidden_grad:
+                    ht.retain_grad()
+
                 hidden_state.append(ht)
                 xt = self.dropout(ht)
             out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
+            if keep_hidden_grad:
+                all_hidden.append(hidden_state)
+
         logits = torch.stack(logits, dim=0)
-        hidden = torch.stack(previous_hidden, dim=0)
+        last_hidden = torch.stack(previous_hidden, dim=0)
+
+        logits = logits.view(self.seq_len, self.batch_size, self.vocab_size)
+
+        if not keep_hidden_grad:
+            # No need to return all hiddens,
+            return logits, last_hidden
+        else:
+            # Return all hidden for
+            return logits, all_hidden
 
         return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
 
@@ -363,7 +408,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             - hidden: The initial hidden states for every layer of the stacked RNN.
                             shape: (num_layers, batch_size, hidden_size)
             - generated_seq_len: The length of the sequence to generate.
-                           Note that this can be different than the length used 
+                           Note that this can be different than the length used
                            for training (self.seq_len)
         Returns:
             - Sampled sequences of tokens
@@ -411,25 +456,25 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 Implement the MultiHeadedAttention module of the transformer architecture.
 All other necessary modules have already been implemented for you.
 
-We're building a transfomer architecture for next-step prediction tasks, and 
-applying it to sequential language modelling. We use a binary "mask" to specify 
+We're building a transfomer architecture for next-step prediction tasks, and
+applying it to sequential language modelling. We use a binary "mask" to specify
 which time-steps the model can use for the current prediction.
 This ensures that the model only attends to previous time-steps.
 
-The model first encodes inputs using the concatenation of a learned WordEmbedding 
+The model first encodes inputs using the concatenation of a learned WordEmbedding
 and a (in our case, hard-coded) PositionalEncoding.
 The word embedding maps a word's one-hot encoding into a dense real vector.
-The positional encoding 'tags' each element of an input sequence with a code that 
+The positional encoding 'tags' each element of an input sequence with a code that
 identifies it's position (i.e. time-step).
 
 These encodings of the inputs are then transformed repeatedly using multiple
 copies of a TransformerBlock.
-This block consists of an application of MultiHeadedAttention, followed by a 
+This block consists of an application of MultiHeadedAttention, followed by a
 standard MLP; the MLP applies *the same* mapping at every position.
-Both the attention and the MLP are applied with Resnet-style skip connections, 
+Both the attention and the MLP are applied with Resnet-style skip connections,
 and layer normalization.
 
-The complete model consists of the embeddings, the stacked transformer blocks, 
+The complete model consists of the embeddings, the stacked transformer blocks,
 and a linear layer followed by a softmax.
 """
 
