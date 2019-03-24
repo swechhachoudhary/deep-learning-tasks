@@ -87,23 +87,22 @@ class RNN(nn.Module):
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
-        out_feat = hidden_size
+        in_feat = [emb_size] + [hidden_size] * (self.num_layers - 1)
 
         self.tanh = nn.Tanh()
 
-        self.dropout = nn.Dropout(p=1 - dp_keep_prob)
+        self.p = 1 - dp_keep_prob
+
+        self.dropout = nn.Dropout(p=self.p)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
-        self.hidden_layers = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), self.tanh) for i in range(num_layers)])
+        self.rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
 
-        self.fc_layers = nn.ModuleList(
-            [nn.Sequential(self.dropout, nn.Linear(hidden_size, hidden_size), self.tanh) for _ in range(num_layers - 1)])
+        self.fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.output_layer = nn.Sequential(
-            self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.output_layer = nn.Linear(hidden_size, vocab_size)
+        self.init_weights_uniform()
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -111,22 +110,19 @@ class RNN(nn.Module):
         # and output biases to 0 (in place). The embeddings should not use a bias vector.
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
+        with torch.no_grad():
 
-        k = math.sqrt(1. / self.hidden_size)
+            k = 1. / math.sqrt(self.hidden_size)
 
-        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+            nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        for p, p1, po in itertools.zip_longest(self.hidden_layers.parameters(), self.fc_layers.parameters(), self.output_layer.parameters()):
-
-            if p is not None:
-                nn.init.uniform_(p, a=-k, b=k)
-            if p1 is not None:
-                nn.init.uniform_(p1, a=-k, b=k)
-            if po is not None:
-                if po.dim() == 1:
-                    nn.init.constant_(p, 0.0)
-                else:
-                    nn.init.uniform_(p, a=-0.1, b=0.1)
+            for layer in self.rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
+            for layer in self.fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+            nn.init.constant_(self.output_layer.bias, 0.0)
+            nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
@@ -134,7 +130,7 @@ class RNN(nn.Module):
         """
         This is used for the first mini-batch in an epoch, only.
         """
-        return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
+        return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
     def forward(self, inputs, init_hidden):
         # TODO ========================
@@ -175,21 +171,18 @@ class RNN(nn.Module):
 
         logits = []
         previous_hidden = init_hidden
-        embeddings = self.embedding_layer(inputs)
+        embeddings = self.dropout(self.embedding_layer(inputs))
         for t in range(self.seq_len):
             # xt is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                h_inp = torch.cat((xt, hidden), dim=1)
-                ht = self.hidden_layers[l](h_inp)
+                ht_hat = self.rec_layers[l](hidden)
+                ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
-                if l < (self.num_layers - 1):
-                    out = self.fc_layers[l](ht)
-                xt = out
-            out = self.output_layer(ht)
+                xt = self.dropout(ht)
+            out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
@@ -229,18 +222,13 @@ class RNN(nn.Module):
             # xt is of shape(self.batch_size, self.emb_size)
             xt = self.embedding_layer(input)
             hidden_state = []
-
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                h_inp = torch.cat((xt, hidden), dim=1)
-                ht = self.hidden_layers[l](h_inp)
+                ht_hat = self.rec_layers[l](hidden)
+                ht = self.tanh(self.fc_layers[l](xt) + ht_hat)
                 hidden_state.append(ht)
-                if l < (self.num_layers - 1):
-                    out = self.fc_layers[l](ht)
-                xt = out
-
-            out = self.output_layer(ht)
+                xt = ht
+            out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=probs)
@@ -251,7 +239,7 @@ class RNN(nn.Module):
 
         samples = torch.stack(samples, dim=0)
 
-        return samples
+        return samples.numpy()
 
 
 # Problem 2
@@ -272,29 +260,30 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         self.vocab_size = vocab_size
         self.num_layers = num_layers
 
-        in_feat = [emb_size + hidden_size] + [hidden_size + hidden_size] * (self.num_layers - 1)
-        out_feat = hidden_size
+        in_feat = [emb_size] + [hidden_size] * (self.num_layers - 1)
 
         self.sigmoid = nn.Sigmoid()
 
-        self.dropout = nn.Dropout(p=1 - dp_keep_prob)
+        self.tanh = nn.Tanh()
+
+        self.p = 1 - dp_keep_prob
+
+        self.dropout = nn.Dropout(p=self.p)
 
         self.embedding_layer = nn.Embedding(vocab_size, emb_size)
 
-        self.reset_gates = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.rg_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.rg_fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.forget_gates = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.fg_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.fg_fc_layers = nn.ModuleList([nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.hidden_layers = nn.ModuleList(
-            [nn.Sequential(nn.Linear(in_feat[i], out_feat), nn.Sigmoid()) for i in range(num_layers)])
+        self.hidden_rec_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for i in range(num_layers)])
+        self.hidden_fc_layers = nn.ModuleList(
+            [nn.Linear(in_feat[i], hidden_size, bias=False) for i in range(num_layers)])
 
-        self.fc_layers = nn.ModuleList(
-            [nn.Sequential(self.dropout, nn.Linear(hidden_size, hidden_size), nn.Sigmoid()) for _ in range(num_layers - 1)])
-
-        self.output_layer = nn.Sequential(
-            self.dropout, nn.Linear(hidden_size, vocab_size))
+        self.output_layer = nn.Linear(hidden_size, vocab_size)
+        self.init_weights_uniform()
 
     def init_weights_uniform(self):
         # TODO ========================
@@ -303,64 +292,61 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
         # Initialize all other (i.e. recurrent and linear) weights AND biases uniformly
         # in the range [-k, k] where k is the square root of 1/hidden_size
 
-        # Embedding layer weights
-        nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
+        with torch.no_grad():
 
-        k = math.sqrt(1. / self.hidden_size)
+            # Embedding layer weights
+            nn.init.uniform_(self.embedding_layer.weight, a=-0.1, b=0.1)
 
-        reset_param = self.reset_gates.parameters()
-        forget_param = self.forget_gates.parameters()
-        hidden_param = self.hidden_layers.parameters()
-        fc_param = self.fc_layers.parameters()
+            k = 1. / math.sqrt(self.hidden_size)
 
-        # hidden layers and fully connected layers parameters
-        for rp, fp, hp, fc_p in itertools.zip_longest(reset_param, forget_param, hidden_param, fc_param):
+            for layer in self.rg_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
 
-            if rp is not None:
-                nn.init.uniform_(rp, a=-k, b=k)
-            if fp is not None:
-                nn.init.uniform_(fp, a=-k, b=k)
-            if hp is not None:
-                nn.init.uniform_(hp, a=-k, b=k)
-            if fc_p is not None:
-                nn.init.uniform_(fc_p, a=-k, b=k)
+            for layer in self.rg_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
 
-        # output layer parameters
-        for p in self.output_layer.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.0)
-            else:
-                nn.init.uniform_(p, a=-0.1, b=0.1)
+            for layer in self.fg_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
+
+            for layer in self.fg_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+
+            for layer in self.hidden_rec_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+                nn.init.uniform_(layer.bias, a=-k, b=k)
+
+            for layer in self.hidden_fc_layers:
+                nn.init.uniform_(layer.weight, a=-k, b=k)
+
+            nn.init.constant_(self.output_layer.bias, 0.0)
+            nn.init.uniform_(self.output_layer.weight, a=-0.1, b=0.1)
 
     def init_hidden(self):
         # TODO ========================
         # a parameter tensor of shape (self.num_layers, self.batch_size,
         # self.hidden_size)
-        return nn.Parameter(torch.zeros(self.num_layers, self.batch_size, self.hidden_size), requires_grad=False)
+        return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
 
     def forward(self, inputs, init_hidden):
         # TODO ========================
         logits = []
         previous_hidden = init_hidden
-        embeddings = self.embedding_layer(inputs)
+        embeddings = self.dropout(self.embedding_layer(inputs))
         for t in range(self.seq_len):
             # xt is of shape(self.batch_size, self.emb_size)
             xt = embeddings[t]
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
-                rt = self.reset_gates[l](inp)
-                zt = self.forget_gates[l](inp)
-                h_inp = torch.cat((xt, rt * hidden), dim=1)
-                h_hat = self.hidden_layers[l](h_inp)
-                ht = (1 - zt) * hidden + zt * h_hat
+                rt = self.sigmoid(self.rg_fc_layers[l](xt) + self.rg_rec_layers[l](hidden))
+                zt = self.sigmoid(self.fg_fc_layers[l](xt) + self.fg_rec_layers[l](hidden))
+                ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
+                ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
-                if l < (self.num_layers - 1):
-                    out = self.fc_layers[l](ht)
-                xt = out
-            out = self.output_layer(ht)
+                xt = self.dropout(ht)
+            out = self.output_layer(xt)
             logits.append(out)
             previous_hidden = hidden_state
 
@@ -393,19 +379,14 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             xt = self.embedding_layer(input)
             hidden_state = []
             for l in range(self.num_layers):
-
                 hidden = previous_hidden[l]
-                inp = torch.cat((xt, hidden), dim=1)
-                rt = self.reset_gates[l](inp)
-                zt = self.forget_gates[l](inp)
-                h_inp = torch.cat((xt, rt * hidden), dim=1)
-                h_hat = self.hidden_layers[l](h_inp)
-                ht = (1 - zt) * hidden + zt * h_hat
+                rt = self.sigmoid(self.rg_fc_layers[l](xt) + self.rg_rec_layers[l](hidden))
+                zt = self.sigmoid(self.fg_fc_layers[l](xt) + self.fg_rec_layers[l](hidden))
+                ht_hat = self.tanh(self.hidden_fc_layers[l](xt) + self.hidden_rec_layers[l](rt * hidden))
+                ht = (1 - zt) * hidden + zt * ht_hat
                 hidden_state.append(ht)
-                if l < (self.num_layers - 1):
-                    out = self.fc_layers[l](ht)
-                xt = out
-            out = self.output_layer(ht)
+                xt = ht
+            out = self.output_layer(xt)
             probs = F.softmax(out, dim=1)
             # sample
             dist = Categorical(probs=probs)
@@ -416,7 +397,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
 
         samples = torch.stack(samples, dim=0)
 
-        return samples
+        return samples.numpy()
 
 
 # Problem 3
@@ -481,6 +462,7 @@ and a linear layer followed by a softmax.
 
 # TODO: implement this class
 class MultiHeadedAttention(nn.Module):
+
     def __init__(self, n_heads, n_units, dropout=0.1):
         """
         n_heads: the number of attention heads
@@ -499,18 +481,6 @@ class MultiHeadedAttention(nn.Module):
         # TODO: create/initialize any necessary parameters or layers
         # Note: the only Pytorch modules you are allowed to use are nn.Linear
         # and nn.Dropout
-        self.n_heads = n_heads
-        self.q_ws = nn.ModuleList(
-            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
-        )
-        self.k_ws = nn.ModuleList(
-            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
-        )
-        self.v_ws = nn.ModuleList(
-            [nn.Linear(n_units, self.d_k) for _ in range(n_heads)]
-        )
-        self.o_w = nn.Linear(n_heads * self.d_k, n_units)  # (n_units, n_units)
-        self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
         # TODO: implement the masked multi-head attention.
@@ -519,19 +489,8 @@ class MultiHeadedAttention(nn.Module):
         # As described in the .tex, apply input masking to the softmax
         # generating the "attention values" (i.e. A_i in the .tex)
         # Also apply dropout to the attention values.
-        heads = []
-        for i in range(self.n_heads):
-            pre_softmax = (
-                self.q_ws[i](query) @ self.k_ws[i](key).permute(0, 2, 1)
-            ) / math.sqrt(self.d_k)
-            # pre_softmax.shape: (batch_size, seq_len, seq_len)
-            if mask is not None:
-                pre_softmax = pre_softmax * mask.float() - (1e9 * (1 - mask.float()))
-            a_i = self.dropout(F.softmax(pre_softmax, dim=2))
-            heads.append(a_i @ self.v_ws[i](value))
 
-        # return size: (batch_size, seq_len, self.n_units)
-        return self.o_w(torch.cat(heads, dim=2))
+        return  # size: (batch_size, seq_len, self.n_units)
 
 
 #-------------------------------------------------------------------------
