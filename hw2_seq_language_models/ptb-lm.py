@@ -352,11 +352,11 @@ def repackage_hidden(h):
     """
     Wraps hidden states in new Tensors, to detach them from their history.
 
-    This prevents Pytorch from trying to backpropagate into previous input 
-    sequences when we use the final hidden states from one mini-batch as the 
+    This prevents Pytorch from trying to backpropagate into previous input
+    sequences when we use the final hidden states from one mini-batch as the
     initial hidden states for the next mini-batch.
 
-    Using the final hidden states in this way makes sense when the elements of 
+    Using the final hidden states in this way makes sense when the elements of
     the mini-batches are actually successive subsequences in a set of longer sequences.
     This is the case with the way we've processed the Penn Treebank dataset.
     """

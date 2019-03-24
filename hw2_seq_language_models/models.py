@@ -199,7 +199,6 @@ class RNN(nn.Module):
             if keep_hidden_grad:
                 all_hidden.append(hidden_state)
 
-        if keep_hidden_grad:
 
         logits = torch.stack(logits, dim=0)
         last_hidden = torch.stack(previous_hidden, dim=0)
