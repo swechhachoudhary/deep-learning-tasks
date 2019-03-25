@@ -37,7 +37,7 @@ parser.add_argument('--batch_size', type=int, default=20,
                     help='size of one minibatch')
 parser.add_argument('--initial_lr', type=float, default=20.0,
                     help='initial learning rate')
-parser.add_argument('--hidden_size', type=int, default=200,
+parser.add_argument('--hidden_size', type=int, default=1500,
                     help='size of hidden layers. IMPORTANT: for the transformer\
                     this must be a multiple of 16.')
 parser.add_argument('--save_best', action='store_true',
@@ -190,55 +190,6 @@ print('  vocabulary size: {}'.format(vocab_size))
 
 ###############################################################################
 #
-# MODEL SETUP
-#
-###############################################################################
-
-if args.model == 'RNN':
-    model = RNN(emb_size=args.emb_size, hidden_size=args.hidden_size,
-                seq_len=args.seq_len, batch_size=args.batch_size,
-                vocab_size=vocab_size, num_layers=args.num_layers,
-                dp_keep_prob=args.dp_keep_prob)
-elif args.model == 'GRU':
-    model = GRU(emb_size=args.emb_size, hidden_size=args.hidden_size,
-                seq_len=args.seq_len, batch_size=args.batch_size,
-                vocab_size=vocab_size, num_layers=args.num_layers,
-                dp_keep_prob=args.dp_keep_prob)
-elif args.model == 'TRANSFORMER':
-    if args.debug:  # use a very small model
-        model = TRANSFORMER(vocab_size=vocab_size, n_units=16, n_blocks=2)
-    else:
-        # Note that we're using num_layers and hidden_size to mean slightly
-        # different things here than in the RNNs.
-        # Also, the Transformer also has other hyperparameters
-        # (such as the number of attention heads) which can change it's behavior.
-        model = TRANSFORMER(vocab_size=vocab_size, n_units=args.hidden_size,
-                            n_blocks=args.num_layers, dropout=1. - args.dp_keep_prob)
-    # these 3 attributes don't affect the Transformer's computations;
-    # they are only used in run_epoch
-    model.batch_size = args.batch_size
-    model.seq_len = args.seq_len
-    model.vocab_size = vocab_size
-else:
-    print("Model type not recognized.")
-
-###############################################################################
-#
-# LOAD THE SAVED BEST MODEL FROM PROBLEM 4.1 AND DEFINE LOSS FUNCTION
-#
-###############################################################################
-
-# Load the saved best model
-model.load_state_dict(torch.load('best_models/best_params_' + args.model +
-                                 '.pt', map_location=lambda storage, loc: storage))
-model = model.to(device)
-
-# LOSS FUNCTION
-loss_fn = nn.CrossEntropyLoss(reduction='none')
-
-
-###############################################################################
-#
 # DEFINE COMPUTATIONS FOR PROCESSING ONE EPOCH
 #
 ###############################################################################
@@ -319,13 +270,54 @@ print("\n########## Running Main Loop ##########################")
 # MAIN LOOP
 print('Length of Valid data: {}'.format(len(valid_data)))
 
-# RUN MODEL ON VALIDATION DATA
-loss_t = run_epoch(model, valid_data)
-
 plt.figure()
-plt.plot(loss_t)
+for _model in ['RNN', 'GRU', 'TRANSFORMER']:
+
+    if _model == 'RNN':
+        model = RNN(emb_size=args.emb_size, hidden_size=args.hidden_size,
+                    seq_len=args.seq_len, batch_size=args.batch_size,
+                    vocab_size=vocab_size, num_layers=args.num_layers,
+                    dp_keep_prob=args.dp_keep_prob)
+    elif _model == 'GRU':
+        model = GRU(emb_size=args.emb_size, hidden_size=args.hidden_size,
+                    seq_len=args.seq_len, batch_size=args.batch_size,
+                    vocab_size=vocab_size, num_layers=args.num_layers,
+                    dp_keep_prob=args.dp_keep_prob)
+    elif _model == 'TRANSFORMER':
+        if args.debug:  # use a very small model
+            model = TRANSFORMER(vocab_size=vocab_size, n_units=16, n_blocks=2)
+        else:
+            # Note that we're using num_layers and hidden_size to mean slightly
+            # different things here than in the RNNs.
+            # Also, the Transformer also has other hyperparameters
+            # (such as the number of attention heads) which can change it's behavior.
+            transformer_hidden_size = 512
+            transformer_num_layers = 6
+            model = TRANSFORMER(vocab_size=vocab_size, n_units=transformer_hidden_size,
+                                n_blocks=transformer_num_layers, dropout=1. - args.dp_keep_prob)
+        # these 3 attributes don't affect the Transformer's computations;
+        # they are only used in run_epoch
+        model.batch_size = 128
+        model.seq_len = 35
+        model.vocab_size = vocab_size
+    else:
+        print("Model type not recognized.")
+
+    # Load the saved best model
+    model.load_state_dict(torch.load('best_models/' + _model + '/best_params.pt',
+                                     map_location=lambda storage, loc: storage))
+    model = model.to(device)
+
+    # LOSS FUNCTION
+    loss_fn = nn.CrossEntropyLoss(reduction='none')
+
+    # RUN MODEL ON VALIDATION DATA
+    loss_t = run_epoch(model, valid_data)
+
+    plt.plot(loss_t, label=_model)
+
 plt.xlabel('Time steps')
 plt.ylabel('Loss at t')
-plt.title('The average loss at each time-step for ' + args.model)
-plt.savefig('plots/loss_vs_t_' + args.model + '.png')
+plt.title('The average loss at each time-step')
+plt.savefig('plots/loss_vs_t_.png')
 plt.close()

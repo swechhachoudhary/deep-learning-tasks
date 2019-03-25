@@ -27,45 +27,21 @@ parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Mod
 parser.add_argument('--data', type=str, default='data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
-parser.add_argument('--model', type=str, default='GRU',
-                    help='type of recurrent net (RNN, GRU, TRANSFORMER)')
-parser.add_argument('--optimizer', type=str, default='SGD_LR_SCHEDULE',
-                    help='optimization algo to use; SGD, SGD_LR_SCHEDULE, ADAM')
 parser.add_argument('--seq_len', type=int, default=35,
                     help='number of timesteps over which BPTT is performed')
 parser.add_argument('--batch_size', type=int, default=10,
                     help='size of one minibatch')
-parser.add_argument('--initial_lr', type=float, default=20.0,
-                    help='initial learning rate')
-parser.add_argument('--hidden_size', type=int, default=200,
+parser.add_argument('--hidden_size', type=int, default=1500,
                     help='size of hidden layers. IMPORTANT: for the transformer\
                     this must be a multiple of 16.')
-parser.add_argument('--save_best', action='store_true',
-                    help='save the model for the best validation performance')
 parser.add_argument('--num_layers', type=int, default=2,
                     help='number of hidden layers in RNN/GRU, or number of transformer blocks in TRANSFORMER')
-
-# Other hyperparameters you may want to tune in your exploration
-parser.add_argument('--emb_size', type=int, default=200,
-                    help='size of word embeddings')
-parser.add_argument('--num_epochs', type=int, default=40,
-                    help='number of epochs to stop after')
 parser.add_argument('--dp_keep_prob', type=float, default=0.35,
                     help='dropout *keep* probability. drop_prob = 1-dp_keep_prob \
                     (dp_keep_prob=1 means no dropout)')
-
-# Arguments that you may want to make use of / implement more code for
-parser.add_argument('--debug', action='store_true')
-parser.add_argument('--save_dir', type=str, default='',
-                    help='path to save the experimental config, logs, model \
-                    This is automatically generated based on the command line \
-                    arguments you pass and only needs to be set if you want a \
-                    custom dir name')
-parser.add_argument('--evaluate', action='store_true',
-                    help="use this flag to run on the test set. Only do this \
-                    ONCE for each model setting, and only after you've \
-                    completed ALL hyperparameter tuning on the validation set.\
-                    Note we are not requiring you to do this.")
+# Other hyperparameters you may want to tune in your exploration
+parser.add_argument('--emb_size', type=int, default=200,
+                    help='size of word embeddings')
 
 # DO NOT CHANGE THIS (setting the random seed makes experiments deterministic,
 # which helps for reproducibility)
@@ -142,54 +118,48 @@ print('  vocabulary size: {}'.format(vocab_size))
 
 ###############################################################################
 #
-# MODEL SETUP
-#
-###############################################################################
-
-if args.model == 'RNN':
-    model = RNN(emb_size=args.emb_size, hidden_size=args.hidden_size,
-                seq_len=args.seq_len, batch_size=args.batch_size,
-                vocab_size=vocab_size, num_layers=args.num_layers,
-                dp_keep_prob=args.dp_keep_prob)
-elif args.model == 'GRU':
-    model = GRU(emb_size=args.emb_size, hidden_size=args.hidden_size,
-                seq_len=args.seq_len, batch_size=args.batch_size,
-                vocab_size=vocab_size, num_layers=args.num_layers,
-                dp_keep_prob=args.dp_keep_prob)
-else:
-    print("Model type not recognized.")
-
-###############################################################################
-#
-# LOAD THE SAVED BEST MODEL FROM PROBLEM 4.1 AND DEFINE LOSS FUNCTION
-#
-###############################################################################
-
-# Load the saved best model
-model.load_state_dict(torch.load('best_models/best_params_' + args.model +
-                                 '.pt', map_location=lambda storage, loc: storage))
-model = model.to(device)
-
-###############################################################################
-#
 # GENERATE SAMPLE SEQUENCES
 #
 ###############################################################################
 
-model.eval()
-generated_seq_len = model.seq_len
-# First word for each sequence is randomly selected from the vocabulary
-first_word_index = np.random.randint(0, high=model.vocab_size, size=model.batch_size)
-input = torch.from_numpy(first_word_index.astype(np.int64)).to(device)
-# initialize initial hidden state
-init_hidden = model.init_hidden()
-# generate
-generated_seq = model.generate(input, init_hidden, generated_seq_len)
 
-sentences = []
-with open('generated_seq_len_' + str(generated_seq_len) + args.model + '.txt', 'w') as file:
-    for i in range(model.batch_size):
-        sentence = [id_2_word[id_] for id_ in generated_seq[:, i]]
-        sentences.append(sentence)
-        print('\n' + ' '.join(sentence))
-        file.write(' '.join(sentence) + '\n')
+gen_seq_len = [35, 70]
+for generated_seq_len in gen_seq_len:
+
+    for _model in ['RNN', 'GRU']:
+
+        # MODEL SETUP
+        if _model == 'RNN':
+            model = RNN(emb_size=args.emb_size, hidden_size=args.hidden_size,
+                        seq_len=args.seq_len, batch_size=args.batch_size,
+                        vocab_size=vocab_size, num_layers=args.num_layers,
+                        dp_keep_prob=args.dp_keep_prob)
+        elif _model == 'GRU':
+            model = GRU(emb_size=args.emb_size, hidden_size=args.hidden_size,
+                        seq_len=args.seq_len, batch_size=args.batch_size,
+                        vocab_size=vocab_size, num_layers=args.num_layers,
+                        dp_keep_prob=args.dp_keep_prob)
+        else:
+            print("Model type not recognized.")
+
+        # Load the saved best model
+        model.load_state_dict(torch.load('best_models/' + _model + '/best_params.pt',
+                                         map_location=lambda storage, loc: storage))
+        model = model.to(device)
+
+        model.eval()
+
+        # First word for each sequence is randomly selected from the vocabulary
+        first_word_index = np.random.randint(0, high=model.vocab_size, size=model.batch_size)
+        input = torch.from_numpy(first_word_index.astype(np.int64)).to(device)
+        # initialize initial hidden state
+        init_hidden = model.init_hidden()
+        # generate
+        generated_seq = model.generate(input, init_hidden, generated_seq_len)
+
+        sentences = []
+        with open('generated_sample/' + _model + 'generated_seq_len_' + str(generated_seq_len) + '.txt', 'w') as file:
+            for i in range(model.batch_size):
+                sentence = [id_2_word[id_] for id_ in generated_seq[:, i]]
+                sentences.append(sentence)
+                file.write(str(i) + ": " + ' '.join(sentence) + '\n')

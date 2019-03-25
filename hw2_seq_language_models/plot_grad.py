@@ -56,7 +56,9 @@ def get_norm_t(all_hidden):
         g_h_t_concat = torch.cat([h_t_l.grad for h_t_l in h_t], dim=1)
         norm = torch.norm(g_h_t_concat, p=2, dim=1)
         norm_t.append(norm.mean().cpu().numpy())
-    normalized_norm = norm_t / max(norm_t)
+    # normalized_norm = norm_t / max(norm_t)
+    normalized_norm = norm_t - min(norm_t)
+    normalized_norm /= max(normalized_norm)
     return normalized_norm
 
 
@@ -104,7 +106,7 @@ def main():
     plt.legend()
     plt.xlabel("Time")
     plt.ylabel("Normalized gradient")
-    plt.savefig(args.save_path)
+    plt.savefig(str(args.save_path) + '/gradient_plot.png')
     plt.close()
 
 

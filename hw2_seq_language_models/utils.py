@@ -1,4 +1,5 @@
 import sys
+import torch
 from models import RNN, GRU
 from helper import get_vocab_size
 
@@ -13,6 +14,7 @@ def load_config_as_dict(config_file):
             key, val = arg.split('    ')
             args_dict[key] = val
     return args_dict
+
 
 def load_model(path, device):
     config = load_config_as_dict(path / 'exp_config.txt')
@@ -38,4 +40,3 @@ def load_model(path, device):
 
     model.to(device)
     return model
-
