@@ -212,7 +212,7 @@ def repackage_hidden(h):
         return tuple(repackage_hidden(v) for v in h)
 
 
-def run_epoch(model, data, is_train=False, lr=1.0):
+def run_epoch(model, data, is_train=False, lr=1.0, _model='TRANSFORMER'):
     """
     One epoch of training/validation (depending on flag is_train).
     """
@@ -221,7 +221,7 @@ def run_epoch(model, data, is_train=False, lr=1.0):
     else:
         model.eval()
 
-    if args.model != 'TRANSFORMER':
+    if _model != 'TRANSFORMER':
         hidden = model.init_hidden()
         hidden = hidden.to(device)
 
@@ -230,7 +230,7 @@ def run_epoch(model, data, is_train=False, lr=1.0):
 
     # LOOP THROUGH MINIBATCHES
     for step, (x, y) in enumerate(ptb_iterator(data, model.batch_size, model.seq_len)):
-        if args.model == 'TRANSFORMER':
+        if _model == 'TRANSFORMER':
             batch = Batch(torch.from_numpy(x).long().to(device))
             model.zero_grad()
             outputs = model.forward(batch.data, batch.mask).transpose(1, 0)
@@ -241,11 +241,12 @@ def run_epoch(model, data, is_train=False, lr=1.0):
             # size(batch_size, seq_len) for computing the average loss at each time
             # step
             hidden = repackage_hidden(model.init_hidden())
-            # targets size is (seq_len, batch_size)
-            targets = torch.from_numpy(y.astype(np.int64)).transpose(
-                0, 1).contiguous().to(device)
 
             outputs, hidden = model(inputs, hidden)
+
+        # targets size is (seq_len, batch_size)
+        targets = torch.from_numpy(y.astype(np.int64)).transpose(
+            0, 1).contiguous().to(device)
 
         outputs = outputs.transpose(1, 2).contiguous()  # (seq_len, vocab_size, batch_size)
 
@@ -312,12 +313,13 @@ for _model in ['RNN', 'GRU', 'TRANSFORMER']:
     loss_fn = nn.CrossEntropyLoss(reduction='none')
 
     # RUN MODEL ON VALIDATION DATA
-    loss_t = run_epoch(model, valid_data)
+    loss_t = run_epoch(model, valid_data, _model=_model)
 
     plt.plot(loss_t, label=_model)
 
 plt.xlabel('Time steps')
 plt.ylabel('Loss at t')
+plt.legend()
 plt.title('The average loss at each time-step')
 plt.savefig('plots/loss_vs_t_.png')
 plt.close()
