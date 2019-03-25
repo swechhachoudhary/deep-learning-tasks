@@ -162,4 +162,4 @@ for generated_seq_len in gen_seq_len:
             for i in range(model.batch_size):
                 sentence = [id_2_word[id_] for id_ in generated_seq[:, i]]
                 sentences.append(sentence)
-                file.write(str(i) + ": " + ' '.join(sentence) + '\n')
+                file.write(str(i) + ": " + str(id_2_word[first_word_index[i]]) + ':: ' + ' '.join(sentence) + '\n')
