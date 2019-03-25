@@ -12,3 +12,9 @@ To plot gradient vs time-step graph:
 python plot_grad.py --rnn_model_folder=best_models/RNN --gru_model_folder=best_models/GRU --save_path=plots
 
 To generate samples:
+
+python generate.py --seed=1234
+
+python generate.py --seed=1284
+
+python generate.py --seed=12866
