@@ -211,7 +211,7 @@ class RNN(nn.Module):
             # Return logits and all hidden
             return logits, all_hidden
 
-        return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
+        return logits, hidden
 
     def generate(self, input, init_hidden, generated_seq_len):
         # TODO ========================
@@ -396,7 +396,7 @@ class GRU(nn.Module):  # Implement a stacked GRU RNN
             # Return all hidden for
             return logits, all_hidden
 
-        return logits.view(self.seq_len, self.batch_size, self.vocab_size), hidden
+        return logits, hidden
 
     def generate(self, input, init_hidden, generated_seq_len):
         """
