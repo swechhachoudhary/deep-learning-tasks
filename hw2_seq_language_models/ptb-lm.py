@@ -102,10 +102,11 @@ from models import make_model as TRANSFORMER
 #
 ##############################################################################
 
-parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Modeling')
+parser = argparse.ArgumentParser(
+    description='PyTorch Penn Treebank Language Modeling')
 
 # Arguments you may need to set to run different experiments in 4.1 & 4.2.
-parser.add_argument('--data', type=str, default='/home/user44/deep-learning-tasks/hw2_seq_language_models/data',
+parser.add_argument('--data', type=str, default='data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
 parser.add_argument('--model', type=str, default='GRU',
@@ -160,7 +161,8 @@ argsdict['code_file'] = sys.argv[0]
 # Use the model, optimizer, and the flags passed to the script to make the
 # name for the experimental dir
 print("\n########## Setting Up Experiment ######################")
-flags = [flag.lstrip('--').replace('/', '').replace('\\', '') for flag in sys.argv[1:]]
+flags = [flag.lstrip('--').replace('/', '').replace('\\', '')
+         for flag in sys.argv[1:]]
 experiment_path = os.path.join(args.save_dir + '_'.join([argsdict['model'],
                                                          argsdict['optimizer']]
                                                         + flags))
@@ -391,12 +393,14 @@ def run_epoch(model, data, is_train=False, lr=1.0):
             outputs = model.forward(batch.data, batch.mask).transpose(1, 0)
             #print ("outputs.shape", outputs.shape)
         else:
-            inputs = torch.from_numpy(x.astype(np.int64)).transpose(0, 1).contiguous().to(device)  # .cuda()
+            inputs = torch.from_numpy(x.astype(np.int64)).transpose(
+                0, 1).contiguous().to(device)  # .cuda()
             model.zero_grad()
             hidden = repackage_hidden(hidden)
             outputs, hidden = model(inputs, hidden)
 
-        targets = torch.from_numpy(y.astype(np.int64)).transpose(0, 1).contiguous().to(device)  # .cuda()
+        targets = torch.from_numpy(y.astype(np.int64)).transpose(
+            0, 1).contiguous().to(device)  # .cuda()
         tt = torch.squeeze(targets.view(-1, model.batch_size * model.seq_len))
 
         # LOSS COMPUTATION
@@ -421,7 +425,8 @@ def run_epoch(model, data, is_train=False, lr=1.0):
                         p.data.add_(-lr, p.grad.data)
             if step % (epoch_size // 10) == 10:
                 print('step: ' + str(step) + '\t'
-                      + "loss (sum over all examples' seen this epoch):" + str(costs) + '\t'
+                      + "loss (sum over all examples' seen this epoch):" +
+                      str(costs) + '\t'
                       + 'speed(wps): ' + str(iters * model.batch_size / (time.time() - start_time)))
     return np.exp(costs / iters), losses
 
@@ -465,7 +470,8 @@ for epoch in range(num_epochs):
         best_val_so_far = val_ppl
         if args.save_best:
             print("Saving model parameters to best_params.pt")
-            torch.save(model.state_dict(), os.path.join(args.save_dir, 'best_params.pt'))
+            torch.save(model.state_dict(), os.path.join(
+                args.save_dir, 'best_params.pt'))
         # NOTE ==============================================
         # You will need to load these parameters into the same model
         # for a couple Problems: so that you can compute the gradient
